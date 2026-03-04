@@ -297,4 +297,11 @@ app.delete('/api/items/:id', (req, res) => {
   app.handle(req, res);
 });
 
-module.exports = { app, db };
+module.exports = {
+  app,
+  db,
+  __testables: {
+    normalizeSort,
+    validateTodoPayload,
+  },
+};
