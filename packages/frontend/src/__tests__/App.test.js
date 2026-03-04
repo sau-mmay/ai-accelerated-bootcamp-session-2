@@ -1,36 +1,37 @@
 import React, { act } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
 import App from '../App';
 
+const createInitialTodos = () => [
+  {
+    id: 1,
+    title: 'Prepare sprint backlog',
+    dueDate: '2026-03-08T12:00',
+    priority: 'High',
+    status: 'To Do',
+    createdAt: '2026-03-01T00:00:00.000Z',
+    updatedAt: '2026-03-01T00:00:00.000Z',
+  },
+  {
+    id: 2,
+    title: 'Review pull requests',
+    dueDate: null,
+    priority: 'Medium',
+    status: 'In Progress',
+    createdAt: '2026-03-02T00:00:00.000Z',
+    updatedAt: '2026-03-02T00:00:00.000Z',
+  },
+];
+
+let todos = createInitialTodos();
+
 // Mock server to intercept API requests
 const server = setupServer(
   rest.get('/api/todos', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json([
-        {
-          id: 1,
-          title: 'Prepare sprint backlog',
-          dueDate: '2026-03-08T12:00',
-          priority: 'High',
-          status: 'To Do',
-          createdAt: '2026-03-01T00:00:00.000Z',
-          updatedAt: '2026-03-01T00:00:00.000Z',
-        },
-        {
-          id: 2,
-          title: 'Review pull requests',
-          dueDate: null,
-          priority: 'Medium',
-          status: 'In Progress',
-          createdAt: '2026-03-02T00:00:00.000Z',
-          updatedAt: '2026-03-02T00:00:00.000Z',
-        },
-      ])
-    );
+    return res(ctx.status(200), ctx.json(todos));
   }),
 
   rest.post('/api/todos', (req, res, ctx) => {
@@ -43,45 +44,61 @@ const server = setupServer(
       );
     }
 
+    const newTodo = {
+      id: Math.max(0, ...todos.map((todo) => todo.id)) + 1,
+      title,
+      dueDate,
+      priority,
+      status: 'To Do',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    todos = [newTodo, ...todos];
+
     return res(
       ctx.status(201),
-      ctx.json({
-        id: 3,
-        title,
-        dueDate,
-        priority,
-        status: 'To Do',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+      ctx.json(newTodo)
     );
   }),
 
   rest.patch('/api/todos/:id/complete', (req, res, ctx) => {
+    const targetId = Number(req.params.id);
     const isCompleted = req.body.completed;
+    const index = todos.findIndex((todo) => todo.id === targetId);
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        id: Number(req.params.id),
-        title: 'Prepare sprint backlog',
-        dueDate: null,
-        priority: 'High',
-        status: isCompleted ? 'Done' : 'To Do',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-    );
+    if (index < 0) {
+      return res(ctx.status(404), ctx.json({ error: 'Task not found' }));
+    }
+
+    const updatedTodo = {
+      ...todos[index],
+      status: isCompleted ? 'Done' : 'To Do',
+      updatedAt: new Date().toISOString(),
+    };
+    todos[index] = updatedTodo;
+
+    return res(ctx.status(200), ctx.json(updatedTodo));
   }),
 
   rest.delete('/api/todos/:id', (req, res, ctx) => {
-    return res(ctx.status(200), ctx.json({ message: 'Task deleted successfully', id: Number(req.params.id) }));
+    const targetId = Number(req.params.id);
+    const existing = todos.find((todo) => todo.id === targetId);
+
+    if (!existing) {
+      return res(ctx.status(404), ctx.json({ error: 'Task not found' }));
+    }
+
+    todos = todos.filter((todo) => todo.id !== targetId);
+    return res(ctx.status(200), ctx.json({ message: 'Task deleted successfully', id: targetId }));
   })
 );
 
 // Setup and teardown for the mock server
 beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  todos = createInitialTodos();
+});
 afterAll(() => server.close());
 
 describe('App Component', () => {
@@ -184,13 +201,42 @@ describe('App Component', () => {
       expect(screen.getByText('Prepare sprint backlog')).toBeInTheDocument();
     });
 
-    const completeButton = screen.getAllByRole('button', { name: /Complete|Reopen/i })[0];
+    const taskCard = screen
+      .getByText('Prepare sprint backlog')
+      .closest('.MuiCard-root');
+    const completeButton = within(taskCard).getByRole('button', { name: /Complete|Reopen/i });
+
     await act(async () => {
       await user.click(completeButton);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Done')).toBeInTheDocument();
+      expect(within(taskCard).getByText('Done')).toBeInTheDocument();
+    });
+  });
+
+  test('deletes a task and removes it from UI state', async () => {
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Review pull requests')).toBeInTheDocument();
+    });
+
+    const taskCard = screen
+      .getByText('Review pull requests')
+      .closest('.MuiCard-root');
+    const deleteButton = within(taskCard).getByRole('button', { name: 'Delete' });
+
+    await act(async () => {
+      await user.click(deleteButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Review pull requests')).not.toBeInTheDocument();
     });
   });
 });

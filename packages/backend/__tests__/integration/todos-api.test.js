@@ -53,6 +53,15 @@ describe('Todos API integration', () => {
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Task title is required');
     });
+
+    it('returns 400 for invalid priority', async () => {
+      const response = await request(app)
+        .post('/api/todos')
+        .send({ title: 'Invalid priority', priority: 'Critical' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Priority must be one of Low, Medium, High, Urgent');
+    });
   });
 
   describe('PUT /api/todos/:id', () => {
@@ -71,6 +80,15 @@ describe('Todos API integration', () => {
       expect(response.body.title).toBe('Updated task title');
       expect(response.body.status).toBe('In Progress');
       expect(response.body.priority).toBe('Urgent');
+    });
+
+    it('returns 404 for unknown task id', async () => {
+      const response = await request(app)
+        .put('/api/todos/999999')
+        .send({ title: 'Should not exist' });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Task not found');
     });
   });
 
@@ -103,6 +121,13 @@ describe('Todos API integration', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Task deleted successfully');
+    });
+
+    it('returns 400 for invalid id format', async () => {
+      const response = await request(app).delete('/api/todos/not-a-number');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Valid task ID is required');
     });
   });
 });

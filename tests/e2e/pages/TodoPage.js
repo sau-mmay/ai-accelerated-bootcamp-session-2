@@ -12,18 +12,22 @@ class TodoPage {
     await this.page.getByRole('button', { name: /^Add Task$/ }).click();
   }
 
-  async taskCard(title) {
+  taskCard(title) {
     return this.page.locator('.MuiCard-root', { hasText: title }).first();
   }
 
   async markTaskComplete(title) {
-    const card = await this.taskCard(title);
+    const card = this.taskCard(title);
     await card.getByRole('button', { name: /Complete|Reopen/i }).click();
   }
 
   async deleteTask(title) {
-    const card = await this.taskCard(title);
+    const card = this.taskCard(title);
     await card.getByRole('button', { name: /^Delete$/ }).click();
+  }
+
+  async expectTaskStatus(title, statusText) {
+    await this.taskCard(title).getByText(statusText).waitFor();
   }
 }
 

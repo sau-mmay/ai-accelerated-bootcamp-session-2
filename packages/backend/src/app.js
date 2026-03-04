@@ -15,7 +15,7 @@ app.use(morgan('dev'));
 
 const dataDirectory = path.join(__dirname, '..', 'data');
 fs.mkdirSync(dataDirectory, { recursive: true });
-const databasePath = process.env.DB_PATH || path.join(dataDirectory, 'todos.db');
+const databasePath = process.env.DB_PATH || (process.env.NODE_ENV === 'test' ? ':memory:' : path.join(dataDirectory, 'todos.db'));
 
 // Initialize persistent SQLite database
 const db = new Database(databasePath);
