@@ -13,3 +13,4 @@ The project documentation will be built during the bootcamp sessions.
 - [UI Guidelines](../docs/ui-guidelines.md) - Core TODO app UI and design system guidelines
 - [Testing Guidelines](../docs/testing-guidelines.md) - Testing standards and quality requirements for the TODO app
 - [Coding Guidelines](../docs/coding-guidelines.md) - Coding standards for consistency, quality, and maintainability
+- [Feature Implementation Scope](../docs/feature-implementation-scope.md) - Implementation ideas, phased scope, and handoff context
